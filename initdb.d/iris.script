@@ -8,7 +8,7 @@
     set mod.UseSharedMemory = 1
     set mod.Port = 56666
     set mod.Resource = ""
-    set mod.ClassPath = "/irisdev/app/src/FHIRSERVER/java/lib:/irisdev/app/src/FHIRSERVER/java/lib/validator_cli.jar"
+    set mod.ClassPath = "/usr/irissys/lib/java:/usr/irissys/lib/java/validator_cli.jar"
     do $system.external.createServer(mod)
 
     zn "HSLIB"

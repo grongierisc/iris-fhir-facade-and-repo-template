@@ -37,8 +37,9 @@ RUN pip3 install -r /irisdev/app/requirements.txt --break-system-packages
 
 
 RUN cd /irisdev/app/src/FHIRSERVER/java/ && \
-	wget https://github.com/hapifhir/org.hl7.fhir.core/releases/download/6.5.27/validator_cli.jar -O /irisdev/app/src/FHIRSERVER/java/lib/validator_cli.jar && \
-	javac /irisdev/app/src/FHIRSERVER/java/Iris/JavaValidatorFacade.java -classpath /irisdev/app/src/FHIRSERVER/java/lib/validator_cli.jar -d /irisdev/app/src/FHIRSERVER/java/lib
+	mkdir -p /usr/irissys/lib/java && \
+	wget https://github.com/hapifhir/org.hl7.fhir.core/releases/download/6.5.27/validator_cli.jar -O /usr/irissys/lib/java/validator_cli.jar && \
+	javac /irisdev/app/src/FHIRSERVER/java/Iris/JavaValidatorFacade.java -classpath /usr/irissys/lib/java/validator_cli.jar -d /usr/irissys/lib/java
 
 ENTRYPOINT [ "/tini", "--", "/irisdev/app/docker-entrypoint.sh" ]
 
