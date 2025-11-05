@@ -24,6 +24,25 @@
 
     do $system.OBJ.ImportDir("/irisdev/app/src/FHIRSERVER/cls/FHIR/Python","*.cls","cdk",.errors,1)
 
+    //If a var env FHIR_SERVER_ENABLE is set to "1", enable the FHIR server
+    if $SYSTEM.Util.GetEnviron("FHIR_SERVER_ENABLE")="1" {
+        // Get the FHIR Version from the environment variable FHIR_SERVER_VERSION
+        set fhirVersion = $SYSTEM.Util.GetEnviron("FHIR_SERVER_VERSION")
+        if fhirVersion="" {
+            set fhirVersion="R4"
+        }
+        // Get path to the FHIR from the environment variable FHIR_SERVER_PATH
+        set fhirPath = $SYSTEM.Util.GetEnviron("FHIR_SERVER_PATH")
+        if fhirPath="" {
+            set fhirPath="/fhir"
+        }
+        set strategy = $SYSTEM.Util.GetEnviron("FHIR_SERVER_STRATEGY")
+        if strategy="" {
+            set strategy="FHIR.Python.InteractionsStrategy"
+        }
+        Do ##class(HS.FHIRServer.Installer).InstallInstance(fhirPath, strategy, fhirVersion, "", 0)
+    }
+
     zn "HSLIB"
 
     Do ##class(HS.Util.Installer.Foundation).Install("EAI")
