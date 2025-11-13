@@ -13,7 +13,9 @@ can use also :
 
 ```
   fhir-server:
-    image: ghcr.io/intersystems/iris-for-health:fhir-server
+    build: 
+      context: .
+      dockerfile: dockerfile
     environment:
       - FHIR_SERVER_ENABLE=1
       - FHIR_SERVER_VERSION=R4
