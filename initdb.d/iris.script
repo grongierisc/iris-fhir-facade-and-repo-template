@@ -25,23 +25,18 @@
     do $system.OBJ.ImportDir("/irisdev/app/src/FHIRSERVER/cls/FHIR/Python","*.cls","cdk",.errors,1)
 
     //If a var env FHIR_SERVER_ENABLE is set to "1", enable the FHIR server
-    if $SYSTEM.Util.GetEnviron("FHIR_SERVER_ENABLE")="1" {
-        // Get the FHIR Version from the environment variable FHIR_SERVER_VERSION
-        set fhirVersion = $SYSTEM.Util.GetEnviron("FHIR_SERVER_VERSION")
-        if fhirVersion="" {
-            set fhirVersion="R4"
-        }
-        // Get path to the FHIR from the environment variable FHIR_SERVER_PATH
-        set fhirPath = $SYSTEM.Util.GetEnviron("FHIR_SERVER_PATH")
-        if fhirPath="" {
-            set fhirPath="/fhir"
-        }
-        set strategy = $SYSTEM.Util.GetEnviron("FHIR_SERVER_STRATEGY")
-        if strategy="" {
-            set strategy="FHIR.Python.InteractionsStrategy"
-        }
-        Do ##class(HS.FHIRServer.Installer).InstallInstance(fhirPath, strategy, fhirVersion, "", 0)
-    }
+    set fhirServerEnable = $SYSTEM.Util.GetEnviron("FHIR_SERVER_ENABLE")
+    // Get the FHIR Version from the environment variable FHIR_SERVER_VERSION
+    set fhirVersion = $SYSTEM.Util.GetEnviron("FHIR_SERVER_VERSION")
+    if fhirVersion="" set fhirVersion="R4"
+    // Get path to the FHIR from the environment variable FHIR_SERVER_PATH
+    set fhirPath = $SYSTEM.Util.GetEnviron("FHIR_SERVER_PATH")
+    if fhirPath="" set fhirPath="/fhir"
+    // Get the strategy class from the environment variable FHIR_SERVER_STRATEGY
+    set strategy = $SYSTEM.Util.GetEnviron("FHIR_SERVER_STRATEGY")
+    if strategy="" set strategy="FHIR.Python.InteractionsStrategy"
+    zw:(fhirServerEnable) "Enabling FHIR server at path "_fhirPath_" with version "_fhirVersion_" and strategy "_strategy
+    Do:(fhirServerEnable) ##class(HS.FHIRServer.Installer).InstallInstance(fhirPath, strategy, fhirVersion, "", 0)
 
     zn "HSLIB"
 
@@ -49,6 +44,6 @@
 
     zn "EAI"
 
-    zw ##class(HS.FHIRServer.Installer).InteropAdapterConfig("/fhir")
+    zw ##class(HS.FHIRServer.Installer).InteropAdapterConfig("/proxy/fhir")
 
     halt
