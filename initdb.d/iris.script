@@ -37,6 +37,9 @@
     if strategy="" set strategy="FHIR.Python.InteractionsStrategy"
     zw:(fhirServerEnable) "Enabling FHIR server at path "_fhirPath_" with version "_fhirVersion_" and strategy "_strategy
     Do:(fhirServerEnable) ##class(HS.FHIRServer.Installer).InstallInstance(fhirPath, strategy, fhirVersion, "", 0)
+    zw:(fhirServerEnable) "#### FHIR Server is enabled ####"
+    zw:(fhirServerEnable=0) "FHIR server not enabled. To enable, set environment variable FHIR_SERVER_ENABLE=1"
+
 
     zn "HSLIB"
 
