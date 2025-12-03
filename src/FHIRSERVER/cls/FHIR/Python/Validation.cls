@@ -3,7 +3,7 @@ Include HS.FHIRServer
 Class FHIR.Python.Validation [ Abstract ]
 {
 
-Parameter SkipIfNoProfileKEY = 0;
+Parameter SkipIfNoProfileKEY = 1;
 
 Parameter TerminologyServerKEY;
 
