@@ -69,7 +69,7 @@ public class JavaValidatorFacade
     public static String validate(String igList, String resourceFilePath, String txServer, String profileList) throws Throwable
     {
         if ((validator == null)
-            || !igList.equals(IG) 
+            || (igList != null && !igList.equals(IG))
             || (terminologyServer == null && txServer != null)
             || (terminologyServer != null && txServer == null)
             || (terminologyServer != null && !terminologyServer.equals(txServer)))
