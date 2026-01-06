@@ -3,6 +3,7 @@ services:
   init-permissions:
     image: alpine:latest
     volumes:
+      - .:/irisdev/app
       - iris-dur:/dur
     command: >
       sh -c "
