@@ -1,6 +1,6 @@
 Include HS.FHIRServer
 
-Class FHIR.Python.OAuth2Token Extends (HS.FHIRServer.API.OAuth2Token, FHIR.Python.Helper)
+Class FHIR.Python.OAuth2Token Extends (HS.FHIRServer.Util.OAuth2Token, FHIR.Python.Helper)
 {
 
 Method TokenStringGet() As %String [ CodeMode = expression ]
@@ -44,26 +44,21 @@ Method VerifySearchResultsGet() As %Boolean [ CodeMode = expression ]
 
 Method %OnNew(pSchema As HS.FHIRServer.Schema) As %Status
 {
-	// %OnNew is called when the object is created.
-	// The pStrategy parameter is the strategy object that created this object.
-	// The default implementation does nothing
-	// Frist set the python path from an env var
-	set ..PythonPath = $system.Util.GetEnviron("OAUTH_PATH")
-	// Then set the python class name from the env var
-	set ..PythonClassname = $system.Util.GetEnviron("OAUTH_CLASS")
-	// Then set the python module name from the env var
-	set ..PythonModule = $system.Util.GetEnviron("OAUTH_MODULE")
+	// Load decorator registry
+	do ..GetCustomizationSettings(.tPythonPath, .tPythonModule)
+	set ..PythonPath = tPythonPath
+	set ..PythonModule = tPythonModule
 
-	if (..PythonPath = "") || (..PythonClassname = "") || (..PythonModule = "") {
-		set ..PythonPath = "/irisdev/app/src/FHIRSERVER/python/"
-		set ..PythonClassname = "CustomOAuthInteraction"
-		set ..PythonModule = "custom"
-	}
-
-
-	// Then set the python class
+	// Load decorator module and registry
 	do ..SetPythonPath(..PythonPath)
-	set ..PythonClass = ##class(FHIR.Python.Interactions).GetPythonInstance(..PythonModule, ..PythonClassname)
+	set sys = ##class(%SYS.Python).Import("sys")
+	do sys.path.insert(0, ..PythonPath)
+	
+	set importlib = ##class(%SYS.Python).Import("importlib")
+	do importlib."import_module"(..PythonModule)
+	
+	set decoratorsModule = ##class(%SYS.Python).Import("fhir_decorators")
+	set ..PythonClass = decoratorsModule.fhir
 
 	quit $$$OK
 }
@@ -82,13 +77,23 @@ Method SetInstance(
 {
 	if $ISOBJECT(..PythonClass) {
 		Try {
-			do ..PythonClass."set_instance"(pTokenString, pOAuthClient, pBaseURL, pUsername)
+			// Call all registered OAuth set_instance handlers
+			set handlers = ..PythonClass."get_oauth_set_instance_handlers"()
+			if handlers."__len__"() = 0 {
+				do ##super(pTokenString, pOAuthClient, pBaseURL, pUsername)
+				quit
+			}
+			set len = handlers."__len__"()
+			for i=0:1:len-1 {
+				set handler = handlers."__getitem__"(i)
+				do handler."__call__"(pTokenString, pOAuthClient, pBaseURL, pUsername)
+			}
+		} Catch ex {
+			// If any exception occurs, fall back to superclass implementation
+			do ##super(pTokenString, pOAuthClient, pBaseURL, pUsername)
 		}
-		Catch ex {
-			$$$FSLog($system.Status.GetOneStatusText(ex.AsStatus()))
-			throw ##class(%Exception.SystemException).%New("Token is invalid")
-		}
-		
+	} else {
+		do ##super(pTokenString, pOAuthClient, pBaseURL, pUsername)
 	}
 }
 
@@ -102,12 +107,17 @@ Method SetInstance(
 Method GetIntrospection(Output pJWTObj) As %Status [ Private ]
 {
 	if $ISOBJECT(..PythonClass) {
-		set tJWTObjDict = ..PythonClass."get_introspection"()
-		set jsonLib = ##class(%SYS.Python).Import("json")
-		set tJWTObjString = jsonLib.dumps(tJWTObjDict)
-		set pJWTObj = {}.%FromJSON(tJWTObjString)
+		set handlers = ..PythonClass."get_oauth_get_introspection_handlers"()
+		if handlers."__len__"() > 0 {
+			set handler = handlers."__getitem__"(0)
+			set tJWTObjDict = handler."__call__"()
+			set jsonLib = ##class(%SYS.Python).Import("json")
+			set tJWTObjString = jsonLib.dumps(tJWTObjDict)
+			set pJWTObj = {}.%FromJSON(tJWTObjString)
+			quit $$$OK
+		}
 	}
-	quit $$$OK
+	quit ##super(.pJWTObj)
 }
 
 /// @API<br>
@@ -124,15 +134,20 @@ Method GetUserInfo(
 	Output pUserInfo)
 {
 	if $ISOBJECT(..PythonClass) {
-		set builtins = ##class(%SYS.Python).Builtins()
-		set tInfoDict = ..PythonClass."get_user_info"(pBAUsername, pBARoles)
-		for i=0:1:builtins.len(tInfoDict)-1 {
-			set tKey = builtins.list(tInfoDict.keys())."__getitem__"(i)
-			set tValue = tInfoDict."__getitem__"(tKey)
-			set pUserInfo(tKey) = tValue
+		set handlers = ..PythonClass."get_oauth_get_user_info_handlers"()
+		if handlers."__len__"() > 0 {
+			set builtins = ##class(%SYS.Python).Builtins()
+			set handler = handlers."__getitem__"(0)
+			set tInfoDict = handler."__call__"(pBAUsername, pBARoles)
+			for i=0:1:builtins.len(tInfoDict)-1 {
+				set tKey = builtins.list(tInfoDict.keys())."__getitem__"(i)
+				set tValue = tInfoDict."__getitem__"(tKey)
+				set pUserInfo(tKey) = tValue
+			}
+			quit
 		}
 	}
-	quit $$$OK
+	do ##super(pBAUsername, pBARoles, .pUserInfo)
 }
 
 /// Verify that the access token allows the current interaction request based on the resource type,
@@ -144,7 +159,18 @@ Method VerifyResourceIdRequest(
 	pRequiredPrivilege As %String)
 {
 	if $ISOBJECT(..PythonClass) {
-		do ..PythonClass."verify_resource_id_request"(pResourceType, pResourceId, pRequiredPrivilege)
+		set handlers = ..PythonClass."get_oauth_verify_resource_id_handlers"(pResourceType)
+		if handlers."__len__"() = 0 {
+			do ##super(pResourceType, pResourceId, pRequiredPrivilege)
+			quit
+		}
+		set len = handlers."__len__"()
+		for i=0:1:len-1 {
+			set handler = handlers."__getitem__"(i)
+			do handler."__call__"(pResourceType, pResourceId, pRequiredPrivilege)
+		}
+	} else {
+		do ##super(pResourceType, pResourceId, pRequiredPrivilege)
 	}
 }
 
@@ -157,7 +183,19 @@ Method VerifyResourceContent(
 	pAllowSharedResource As %Boolean = 0)
 {
 	if $ISOBJECT(..PythonClass) {
-		do ..PythonClass."verify_resource_content"(pResourceJson, pRequiredPrivilege, pAllowSharedResource)
+		set resourceType = pResourceJson.resourceType
+		set handlers = ..PythonClass."get_oauth_verify_resource_content_handlers"(resourceType)
+		if handlers."__len__"() = 0 {
+			do ##super(pResourceJson, pRequiredPrivilege, pAllowSharedResource)
+			quit
+		}
+		set len = handlers."__len__"()
+		for i=0:1:len-1 {
+			set handler = handlers."__getitem__"(i)
+			do handler."__call__"(pResourceJson, pRequiredPrivilege, pAllowSharedResource)
+		}
+	} else {
+		do ##super(pResourceJson, pRequiredPrivilege, pAllowSharedResource)
 	}
 }
 
@@ -170,7 +208,18 @@ Method VerifyHistoryInstanceResponse(
 	pRequiredPrivilege As %String)
 {
 	if $ISOBJECT(..PythonClass) {
-		do ..PythonClass."verify_history_instance_response"(pResourceType, pResourceJson, pRequiredPrivilege)
+		set handlers = ..PythonClass."get_oauth_verify_history_handlers"(pResourceType)
+		if handlers."__len__"() = 0 {
+			do ##super(pResourceType, pResourceJson, pRequiredPrivilege)
+			quit
+		}
+		set len = handlers."__len__"()
+		for i=0:1:len-1 {
+			set handler = handlers."__getitem__"(i)
+			do handler."__call__"(pResourceType, pResourceJson, pRequiredPrivilege)
+		}
+	} else {
+		do ##super(pResourceType, pResourceJson, pRequiredPrivilege)
 	}
 }
 
@@ -182,7 +231,18 @@ Method VerifyDeleteRequest(
 	pRequiredPrivilege As %String)
 {
 	if $ISOBJECT(..PythonClass) {
-		do ..PythonClass."verify_delete_request"(pResourceType, pResourceId, pRequiredPrivilege)
+		set handlers = ..PythonClass."get_oauth_verify_delete_handlers"(pResourceType)
+		if handlers."__len__"() = 0 {
+			#; do ##super(pResourceType, pResourceId, pRequiredPrivilege)
+			quit
+		}
+		set len = handlers."__len__"()
+		for i=0:1:len-1 {
+			set handler = handlers."__getitem__"(i)
+			do handler."__call__"(pResourceType, pResourceId, pRequiredPrivilege)
+		}
+	} else {
+		#; do ##super(pResourceType, pResourceId, pRequiredPrivilege)
 	}
 }
 
@@ -197,7 +257,18 @@ Method VerifySearchRequest(
 	pRequiredPrivilege As %String)
 {
 	if $ISOBJECT(..PythonClass) {
-		do ..PythonClass."verify_search_request"(pResourceType, pCompartmentResourceType, pCompartmentResourceId, pParameters, pRequiredPrivilege)
+		set handlers = ..PythonClass."get_oauth_verify_search_handlers"(pResourceType)
+		if handlers."__len__"() = 0 {
+			do ##super(pResourceType, pCompartmentResourceType, pCompartmentResourceId, pParameters, pRequiredPrivilege)
+			quit
+		}
+		set len = handlers."__len__"()
+		for i=0:1:len-1 {
+			set handler = handlers."__getitem__"(i)
+			do handler."__call__"(pResourceType, pCompartmentResourceType, pCompartmentResourceId, pParameters, pRequiredPrivilege)
+		}
+	} else {
+		do ##super(pResourceType, pCompartmentResourceType, pCompartmentResourceId, pParameters, pRequiredPrivilege)
 	}
 }
 
@@ -206,7 +277,18 @@ Method VerifySearchRequest(
 Method VerifySystemLevelRequest()
 {
 	if $ISOBJECT(..PythonClass) {
-		do ..PythonClass."verify_system_level_request"()
+		set handlers = ..PythonClass."get_oauth_verify_system_level_handlers"()
+		if handlers."__len__"() = 0 {
+			do ##super()
+			quit
+		}
+		set len = handlers."__len__"()
+		for i=0:1:len-1 {
+			set handler = handlers."__getitem__"(i)
+			do handler."__call__"()
+		}
+	} else {
+		do ##super()
 	}
 }
 
