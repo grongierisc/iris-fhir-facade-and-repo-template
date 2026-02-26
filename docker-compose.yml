@@ -23,6 +23,8 @@ services:
       - FHIR_SERVER_ENABLE=1
       - FHIR_SERVER_VERSION=R4
       - FHIR_SERVER_PATH=/fhir
+      - FHIR_CUSTOMIZATION_PATH=/irisdev/app/src/FHIRSERVER/python
+      - FHIR_CUSTOMIZATION_MODULE=custom_decorators
     ports: 
       - 1972
     volumes:
