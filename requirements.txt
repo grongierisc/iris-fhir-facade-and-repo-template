@@ -4,3 +4,4 @@ deepdiff
 PyJWT
 requests
 irissqlcli
+iris-fhir-python-strategy @ git+https://github.com/grongierisc/iris-fhir-python-strategy@v0.1.2

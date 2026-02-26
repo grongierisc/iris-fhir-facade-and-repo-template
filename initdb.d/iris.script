@@ -22,8 +22,6 @@
     // Install elements that are required for a FHIR-enabled namespace
     Do ##class(HS.FHIRServer.Installer).InstallNamespace()
 
-    do $system.OBJ.ImportDir("/irisdev/app/src/FHIRSERVER/cls/FHIR/Python","*.cls","cdk",.errors,1)
-
     //If a var env FHIR_SERVER_ENABLE is set to "1", enable the FHIR server
     set fhirServerEnable = $SYSTEM.Util.GetEnviron("FHIR_SERVER_ENABLE")
     // Get the FHIR Version from the environment variable FHIR_SERVER_VERSION

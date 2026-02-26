@@ -13,6 +13,9 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# Init also the iris fhir python strategy settings if the file exists
+python3 -m iris_fhir_python_strategy --namespace FHIRSERVER
+
 # Now, run the initialization script
 if [ -f /irisdev/app/initdb.d/iris.script ]; then
     echo "Running initialization script /irisdev/app/initdb.d/iris.script..."
@@ -22,3 +25,9 @@ if [ -f /irisdev/app/initdb.d/iris.script ]; then
         exit 1
     fi
 fi
+
+# Check if iop command is available and run it if it is
+if command -v iop &> /dev/null; then
+    echo "Running iop command to import additional configuration..."
+    iop --init --namespace EAI
+    iop --migrate /irisdev/app/src/EAI/python/EAI/settings.py
