@@ -9,15 +9,7 @@ import json
 import threading
 from typing import Any, Dict, List, Optional
 
-from iris_fhir_python_strategy import fhir,dynamic_object_from_json, get_interactions_context, get_request_context, RequestContext
-from fhir_validator import FhirValidator
-
-ictx = get_interactions_context()
-ictx.validator = (
-            FhirValidator.create(fhir_version="R4")
-            .add_package("hl7.fhir.fr.core@2.1.0")
-            .with_unknown_code_system_mode("warning")
-        )
+from iris_fhir_python_strategy import fhir, dynamic_object_from_json, get_request_context, RequestContext
 
 # ==================== Capability Statement ====================
 
@@ -40,7 +32,7 @@ def extract_user_context(fhir_service: Any, fhir_request: Any, body: Dict[str, A
     """
     Extract user and roles for consent evaluation.
     """
-    ctx = RequestContext()
+    ctx = get_request_context()
     ctx.username = fhir_request.Username
     ctx.roles = fhir_request.Roles
     ctx.interactions = fhir_service.interactions
@@ -97,7 +89,7 @@ def filter_patient_search(rs: Any, resource_type: str):
 # ==================== Consent Rules ====================
 
 @fhir.consent("Patient")
-def patient_consent_rules(fhir_object: Dict[str, Any], user_context: Any) -> bool:
+def patient_consent_rules(fhir_object: Dict[str, Any]) -> bool:
     """
     Check if user has consent to access Patient resource.
     """
@@ -154,17 +146,6 @@ def patient_diff_operation(operation_name: str, operation_scope: str, body: Dict
     return fhir_response
 
 
-@fhir.operation("validate", scope="Type", resource_type="Patient")
-def validate_patient_operation(operation_name: str, operation_scope: str, body: Dict[str, Any],
-                               fhir_service: Any, fhir_request: Any, fhir_response: Any):
-    """
-    Custom $validate operation for Patient resources.
-    """
-    # Use FhirValidateOperation for validation
-    ictx = get_interactions_context()
-    validation_result = ictx.validator.validate(body)
-    fhir_response.Json = validation_result
-
 
 # ==================== Helper Functions ====================
 
@@ -184,16 +165,6 @@ def check_consent(resource_dict: Dict[str, Any]) -> bool:
 
 
 # ==================== Validation Decorators ====================
-
-@fhir.on_validate_resource() # Applies to all resource types (before any other validation)
-def validate_resource_schema(resource_object: Dict[str, Any], is_in_transaction: bool = False):
-    """
-    Validate resource against FHIR schema.
-    Raises exception if validation fails.
-    """
-    ictx = get_interactions_context()
-    validation_result = ictx.validator.validate(resource_object)
-    return validation_result.to_fhir()  # Return validation result as FHIR OperationOutcome
 
 @fhir.on_validate_resource("*")
 def generic_resource_validation(resource_object: Dict[str, Any], is_in_transaction: bool = False):

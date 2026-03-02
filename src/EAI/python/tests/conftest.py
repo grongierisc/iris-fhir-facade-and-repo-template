@@ -1,9 +1,8 @@
 import sys
 import os
 
-# Add the src directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-# Add the src/python directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../python"))
-# Add the src/python/EAI directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../python/EAI"))
+# EAI python source directories
+_TEST_DIR = os.path.dirname(__file__)
+sys.path.insert(0, os.path.join(_TEST_DIR, ".."))
+sys.path.insert(0, os.path.join(_TEST_DIR, "../../python"))
+sys.path.insert(0, os.path.join(_TEST_DIR, "../../python/EAI"))
