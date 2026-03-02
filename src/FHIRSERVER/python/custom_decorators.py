@@ -9,36 +9,15 @@ import json
 import threading
 from typing import Any, Dict, List, Optional
 
-from iris_fhir_python_strategy import fhir,dynamic_object_from_json
-from validator import is_valid_fhir
+from iris_fhir_python_strategy import fhir,dynamic_object_from_json, get_interactions_context, get_request_context, RequestContext
+from fhir_validator import FhirValidator
 
-# ==================== State Management ====================
-# Use a simple class to manage request-scoped state
-class RequestContext:
-    """Stores request-scoped data."""
-    def __init__(self):
-        self.requesting_user = ""
-        self.requesting_roles = ""
-        self.scope_list = []
-        self.security_list = []
-        self.interactions = None  # Will be set by ObjectScript
-        self.token_string = ""
-        self.oauth_client = ""
-        self.base_url = ""
-        self.username = ""
-
-_request_context_local = threading.local()
-
-
-def get_request_context():
-    if not hasattr(_request_context_local, "ctx"):
-        _request_context_local.ctx = RequestContext()
-    return _request_context_local.ctx
-
-
-def set_request_context(ctx):
-    _request_context_local.ctx = ctx
-
+ictx = get_interactions_context()
+ictx.validator = (
+            FhirValidator.create(fhir_version="R4")
+            .add_package("hl7.fhir.fr.core@2.1.0")
+            .with_unknown_code_system_mode("warning")
+        )
 
 # ==================== Capability Statement ====================
 
@@ -62,19 +41,18 @@ def extract_user_context(fhir_service: Any, fhir_request: Any, body: Dict[str, A
     Extract user and roles for consent evaluation.
     """
     ctx = RequestContext()
-    ctx.requesting_user = fhir_request.Username
-    ctx.requesting_roles = fhir_request.Roles
+    ctx.username = fhir_request.Username
+    ctx.roles = fhir_request.Roles
     ctx.interactions = fhir_service.interactions
     ctx.scope_list = []
     ctx.security_list = ["VIP"]  # Example: Assume all users don't have VIP access for testing
-    set_request_context(ctx)
 
 @fhir.on_after_request
 def cleanup_context(fhir_service: Any, fhir_request: Any, fhir_response: Any, body: Dict[str, Any]):
     """
     Clear request-scoped state.
     """
-    set_request_context(RequestContext())
+    pass
 
 
 # ==================== Read/Search Processing ====================
@@ -183,7 +161,8 @@ def validate_patient_operation(operation_name: str, operation_scope: str, body: 
     Custom $validate operation for Patient resources.
     """
     # Use FhirValidateOperation for validation
-    valide, validation_result = is_valid_fhir(body)
+    ictx = get_interactions_context()
+    validation_result = ictx.validator.validate(body)
     fhir_response.Json = validation_result
 
 
@@ -212,8 +191,9 @@ def validate_resource_schema(resource_object: Dict[str, Any], is_in_transaction:
     Validate resource against FHIR schema.
     Raises exception if validation fails.
     """
-    valid, validation_result = is_valid_fhir(resource_object)
-    return validation_result
+    ictx = get_interactions_context()
+    validation_result = ictx.validator.validate(resource_object)
+    return validation_result.to_fhir()  # Return validation result as FHIR OperationOutcome
 
 @fhir.on_validate_resource("*")
 def generic_resource_validation(resource_object: Dict[str, Any], is_in_transaction: bool = False):
