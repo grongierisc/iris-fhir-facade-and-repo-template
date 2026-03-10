@@ -1,16 +1,3 @@
-    zn "%SYS"
-    Do ##class(Security.Users).UnExpireUserPasswords("*")
-
-    // Configure java gateway
-    set mod = {}
-    set mod.Name = "%Java Server FHIR"
-    set mod.Type = "Java"
-    set mod.UseSharedMemory = 1
-    set mod.Port = 56666
-    set mod.Resource = ""
-    set mod.ClassPath = "/usr/irissys/lib/java:/usr/irissys/lib/java/validator_cli.jar"
-    do $system.external.createServer(mod)
-
     zn "HSLIB"
 
     set namespace="FHIRSERVER"
