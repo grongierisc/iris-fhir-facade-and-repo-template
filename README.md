@@ -21,3 +21,17 @@ can use also :
       - FHIR_SERVER_VERSION=R4
       - FHIR_SERVER_PATH=/fhir
 ```
+
+
+## CI
+
+Build 
+
+```
+docker build -t iris-fhir-facade-and-repo-template:latest .
+```
+
+Run tests
+
+```
+docker run --rm iris-fhir-facade-and-repo-template:latest --after "bash /irisdev/app/test_iris.sh"

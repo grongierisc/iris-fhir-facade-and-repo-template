@@ -35,6 +35,3 @@ COPY --chown=${ISC_PACKAGE_MGRUSER}:${ISC_PACKAGE_IRISGROUP} . /irisdev/app/
 # Install the requirements
 RUN pip3 install -r /irisdev/app/requirements.txt --break-system-packages
 
-ENTRYPOINT [ "/tini", "--", "/irisdev/app/docker-entrypoint.sh" ]
-
-CMD [ "iris" ]
